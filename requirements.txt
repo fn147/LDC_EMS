@@ -1,0 +1,4 @@
+httpx
+pdfplumber
+streamlit
+openai
