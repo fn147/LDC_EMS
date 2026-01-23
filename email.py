@@ -46,7 +46,9 @@ http_client = httpx.Client(timeout=60, verify=False)
 
 
 def get_openai_api_key() -> str:
-    return st.session_state.get("openai_api_key", "").strip()
+    # Streamlit Cloud Secrets:
+    # OPENAI_API_KEY = "sk-..."
+    return st.secrets.get("OPENAI_API_KEY", "").strip()
 
 
 def decode_mime_header(value):
@@ -300,15 +302,10 @@ def main():
 
     st.subheader("AI Test Detection")
     prompt_template = st.text_area("Prompt", value=DEFAULT_PROMPT, height=260)
-    st.text_input(
-        "OpenAI API key",
-        type="password",
-        key="openai_api_key",
-        value="sk_...",
-        help="Enter your personal OpenAI API key to enable AI detection.",
-    )
+
+    # Optional: show status (no key entry field)
     if not get_openai_api_key():
-        st.warning("Missing OpenAI API key. Enter it to run AI detection.")
+        st.warning("Missing OpenAI API key in Streamlit secrets (OPENAI_API_KEY).")
 
     pdf_paths = []
     if source_mode == "Fetch from email" and save_attachments_enabled:
@@ -323,16 +320,19 @@ def main():
     run_clicked = st.button("Run AI detection")
 
     if run_clicked:
-        if not get_openai_api_key():
-            st.error("Missing OpenAI API key.")
+        api_key = get_openai_api_key()
+        if not api_key:
+            st.error("Missing OpenAI API key in Streamlit secrets (OPENAI_API_KEY).")
             st.stop()
-        client = OpenAI(api_key=get_openai_api_key(), http_client=http_client)
+
+        client = OpenAI(api_key=api_key, http_client=http_client)
 
         progress = st.progress(0)
         current_file = st.empty()
         results = []
         total = available_count or 1
         processed = 0
+
         if source_mode == "Upload PDFs":
             if not uploads:
                 st.error("No PDF files uploaded.")
@@ -410,6 +410,7 @@ def main():
             for item in results
         ]
         st.dataframe(display_rows, use_container_width=True)
+
         csv_buffer = io.StringIO()
         writer = csv.DictWriter(
             csv_buffer,
@@ -417,12 +418,14 @@ def main():
         )
         writer.writeheader()
         writer.writerows(display_rows)
+
         st.download_button(
             "Export results as CSV",
             data=csv_buffer.getvalue(),
             file_name="ai_results.csv",
             mime="text/csv",
         )
+
+
 if __name__ == "__main__":
     main()
-
