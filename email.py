@@ -304,7 +304,7 @@ def main():
         "OpenAI API key",
         type="password",
         key="openai_api_key",
-        value="sk-proj-JcMnRLAzIV0cFPvkCfB8fnZkk7jdGYM128n6kpDgMG0aYECOwXe-Eefv2ZHug6HHWNkdkrECWhT3BlbkFJc4cJ__gvodFWuJX5H-NIhqp5ooG5oh1dJfQ7PRGUmtR38Rgs1P-3N1yi1a-od5l9NqKk8TRoUAfati",
+        value="sk_...",
         help="Enter your personal OpenAI API key to enable AI detection.",
     )
     if not get_openai_api_key():
@@ -425,3 +425,4 @@ def main():
         )
 if __name__ == "__main__":
     main()
+
