@@ -46,10 +46,7 @@ http_client = httpx.Client(timeout=60, verify=False)
 
 
 def get_openai_api_key() -> str:
-    return os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY", "")
-
-
-client = OpenAI(api_key=get_openai_api_key(), http_client=http_client)
+    return st.session_state.get("openai_api_key", "").strip()
 
 
 def decode_mime_header(value):
@@ -133,7 +130,7 @@ def build_prompt(prompt_template: str, text: str) -> str:
     return f"{prompt_template}\n\nReport text:\n{text}"
 
 
-def llm_analyze(text: str, prompt_template: str) -> str:
+def llm_analyze(text: str, prompt_template: str, client: OpenAI) -> str:
     prompt = build_prompt(prompt_template, text)
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -303,8 +300,15 @@ def main():
 
     st.subheader("AI Test Detection")
     prompt_template = st.text_area("Prompt", value=DEFAULT_PROMPT, height=260)
+    st.text_input(
+        "OpenAI API key",
+        type="password",
+        key="openai_api_key",
+        value="sk-proj-JcMnRLAzIV0cFPvkCfB8fnZkk7jdGYM128n6kpDgMG0aYECOwXe-Eefv2ZHug6HHWNkdkrECWhT3BlbkFJc4cJ__gvodFWuJX5H-NIhqp5ooG5oh1dJfQ7PRGUmtR38Rgs1P-3N1yi1a-od5l9NqKk8TRoUAfati",
+        help="Enter your personal OpenAI API key to enable AI detection.",
+    )
     if not get_openai_api_key():
-        st.warning("Missing OPENAI_API_KEY. Set it to run AI detection.")
+        st.warning("Missing OpenAI API key. Enter it to run AI detection.")
 
     pdf_paths = []
     if source_mode == "Fetch from email" and save_attachments_enabled:
@@ -320,8 +324,9 @@ def main():
 
     if run_clicked:
         if not get_openai_api_key():
-            st.error("Missing OPENAI_API_KEY.")
+            st.error("Missing OpenAI API key.")
             st.stop()
+        client = OpenAI(api_key=get_openai_api_key(), http_client=http_client)
 
         progress = st.progress(0)
         current_file = st.empty()
@@ -348,7 +353,7 @@ def main():
                     progress.progress(min(processed / total, 1.0))
                     continue
 
-                result = llm_analyze(text, prompt_template)
+                result = llm_analyze(text, prompt_template, client)
                 results.append({
                     "file_name": file.name,
                     "source": "upload",
@@ -380,7 +385,7 @@ def main():
                     progress.progress(min(processed / total, 1.0))
                     continue
 
-                result = llm_analyze(text, prompt_template)
+                result = llm_analyze(text, prompt_template, client)
                 results.append({
                     "file_name": pdf_path.name,
                     "source": "email",
