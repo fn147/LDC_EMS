@@ -17,9 +17,9 @@ MAX_RETRIES = 5
 RETRY_SLEEP = 3
 DEFAULT_PROMPT = """You are reading a microbiological laboratory test report.
 
-Your task:
+Your tasks:
 1. Find the FINAL TEST RESULT requested by the user.
-2. Decide ONLY based on explicit result wording in the report.
+2. Find the SAMPLE DATE (date when the sample was taken).
 
 Decision rules (VERY IMPORTANT):
 - Output "+" ONLY if the report explicitly states the target is detected
@@ -29,15 +29,23 @@ Decision rules (VERY IMPORTANT):
 - Ignore symbols (+ / -) unless they are clearly part of the final test result.
 - Ignore method descriptions, legends, footnotes, and example text.
 
-Output format (STRICT):
-- First character: "+" or "-"
-- Then ONE very short sentence explaining why
-- Then quote the EXACT line from the report used as evidence
+Date rules:
+- Extract the sampling date (e.g. "Probenahme", "Sampling Date", "Sample Date").
+- Return date in format YYYY-MM-DD if possible.
+- If no date is found, return "unknown".
+
+Output format (STRICT JSON ONLY):
+{
+  "result": "+ or -",
+  "reason": "very short explanation",
+  "evidence": "exact line from report",
+  "sample_date": "YYYY-MM-DD or unknown"
+}
 
 Rules:
 - Be very brief
 - Do not explain laboratory methods
-- Do not interpret Ct values or PCR thresholds
+- Do not interpret Ct values
 - Do not add extra text
 - write everything in English
 """
