@@ -20,6 +20,7 @@ DEFAULT_PROMPT = """You are reading a microbiological laboratory test report.
 Your tasks:
 1. Find the FINAL TEST RESULT requested by the user.
 2. Find the SAMPLE DATE (date when the sample was taken).
+3. Find the SAMPLE TIME if available.
 
 Decision rules (VERY IMPORTANT):
 - Output "+" ONLY if the report explicitly states the target is detected
@@ -29,17 +30,21 @@ Decision rules (VERY IMPORTANT):
 - Ignore symbols (+ / -) unless they are clearly part of the final test result.
 - Ignore method descriptions, legends, footnotes, and example text.
 
-Date rules:
+Date & Time rules:
 - Extract the sampling date (e.g. "Probenahme", "Sampling Date", "Sample Date").
+- Extract the sampling time if explicitly stated.
 - Return date in format YYYY-MM-DD if possible.
+- Return time in format HH:MM (24h) if possible.
 - If no date is found, return "unknown".
+- If no time is found, return "unknown".
 
 Output format (STRICT JSON ONLY):
 {
   "result": "+ or -",
   "reason": "very short explanation",
   "evidence": "exact line from report",
-  "sample_date": "YYYY-MM-DD or unknown"
+  "sample_date": "YYYY-MM-DD or unknown",
+  "sample_time": "HH:MM or unknown"
 }
 
 Rules:
