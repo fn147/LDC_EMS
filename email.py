@@ -12,7 +12,7 @@ import pdfplumber
 import streamlit as st
 from openai import OpenAI
 
-MODEL_NAME = "gpt-4.1"
+MODEL_NAME = "gpt-5.3-instant"
 MAX_RETRIES = 5
 RETRY_SLEEP = 3
 DEFAULT_PROMPT = """You are reading a microbiological laboratory test report.
