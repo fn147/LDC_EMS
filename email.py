@@ -44,22 +44,25 @@ Sampling place rules:
 - If \"Entnahmestelle\" is missing, use another explicit place field such as
   \"Beschreibung\" or another clearly stated sampling location.
 - If no place is stated, return \"unknown\".
-
-Output format (STRICT TAB-SEPARATED TEXT ONLY):
-Return one header line followed by one line per sample.
-Use exactly these columns in exactly this order, separated by tabs:
-sample_label\tresult\treason\tevidence\tsample_date\tsample_time\tsampling_place
-
-Example:
-sample_label\tresult\treason\tevidence\tsample_date\tsample_time\tsampling_place
-L1\t-\texplicit not detected\tL1 n.n. <100\t2020-03-14\t11:00\tBW 57
+{
+  \"samples\": [
+    {
+      \"sample_label\": \"short sample identifier like L1 or Probe-Nr. 1 or unknown\",
+      \"result\": \"+ or - or unknown\",
+      \"reason\": \"very short explanation\",
+      \"evidence\": \"exact line from report\",
+      \"sample_date\": \"YYYY-MM-DD or unknown\",
+      \"sample_time\": \"HH:MM or unknown\",
+      \"sampling_place\": \"text or unknown\"
+    }
+  ]
+}
 
 Rules:
 - Return every sample in the report, not just one.
 - Match each result with the correct sample label, date, time, and place.
 - Be very brief.
 - Do not explain laboratory methods.
-- Do not add extra text before or after the tab-separated table.
 - Write everything in English.
 """
 
