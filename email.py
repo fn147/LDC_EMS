@@ -15,44 +15,52 @@ from openai import OpenAI
 MODEL_NAME = "gpt-4.1-mini"
 MAX_RETRIES = 5
 RETRY_SLEEP = 3
-DEFAULT_PROMPT = """You are reading a microbiological laboratory test report.
+DEFAULT_PROMPT = """You are reading a microbiological laboratory test report for Salmonella.
 
-Your tasks:
-1. Find the FINAL TEST RESULT requested by the user.
-2. Find the SAMPLE DATE (date when the sample was taken).
-3. Find the SAMPLE TIME if available.
+Your task is to extract EVERY sample mentioned in the report.
 
-Decision rules (VERY IMPORTANT):
-- Output "+" ONLY if the report explicitly states the target is detected
-  (e.g. "nachgewiesen", "detected", "positive").
-- Output "-" ONLY if the report explicitly states the target is NOT detected
-  (e.g. "nicht nachgewiesen", "n.n.", "not detected", "negative").
-- Ignore symbols (+ / -) unless they are clearly part of the final test result.
-- Ignore method descriptions, legends, footnotes, and example text.
+For each sample:
+1. Find the final Salmonella result.
+2. Find the sampling date.
+3. Find the sampling time if available.
+4. Find the sampling place where the sample was taken.
 
-Date & Time rules:
-- Extract the sampling date (e.g. "Probenahme", "Sampling Date", "Sample Date").
-- Extract the sampling time if explicitly stated.
-- Return date in format YYYY-MM-DD if possible.
-- Return time in format HH:MM (24h) if possible.
-- If no date is found, return "unknown".
-- If no time is found, return "unknown".
+Decision rules for the Salmonella result:
+- Output \"+\" ONLY if the report explicitly states Salmonella is detected
+  (for example: \"nachgewiesen\", \"detected\", \"positive\").
+- Output \"-\" ONLY if the report explicitly states Salmonella is not detected
+  (for example: \"nicht nachgewiesen\", \"n.n.\", \"not detected\", \"negative\").
+- If the result is unclear, output \"unknown\".
+- Ignore legends, method descriptions, footnotes, and example text.
 
-Output format (STRICT JSON ONLY):
-{
-  "result": "+ or -",
-  "reason": "very short explanation",
-  "evidence": "exact line from report",
-  "sample_date": "YYYY-MM-DD or unknown",
-  "sample_time": "HH:MM or unknown"
-}
+Sampling date and time rules:
+- Prefer the value in \"Probenahme\".
+- Return the date as YYYY-MM-DD if possible.
+- Return the time as HH:MM in 24-hour format if possible.
+- If a value is missing, return \"unknown\".
+
+Sampling place rules:
+- Prefer the value in \"Entnahmestelle\".
+- If \"Entnahmestelle\" is missing, use another explicit place field such as
+  \"Beschreibung\" or another clearly stated sampling location.
+- If no place is stated, return \"unknown\".
+
+Output format (STRICT TAB-SEPARATED TEXT ONLY):
+Return one header line followed by one line per sample.
+Use exactly these columns in exactly this order, separated by tabs:
+sample_label\tresult\treason\tevidence\tsample_date\tsample_time\tsampling_place
+
+Example:
+sample_label\tresult\treason\tevidence\tsample_date\tsample_time\tsampling_place
+L1\t-\texplicit not detected\tL1 n.n. <100\t2020-03-14\t11:00\tBW 57
 
 Rules:
-- Be very brief
-- Do not explain laboratory methods
-- Do not interpret Ct values
-- Do not add extra text
-- write everything in English
+- Return every sample in the report, not just one.
+- Match each result with the correct sample label, date, time, and place.
+- Be very brief.
+- Do not explain laboratory methods.
+- Do not add extra text before or after the tab-separated table.
+- Write everything in English.
 """
 
 http_client = httpx.Client(timeout=60, verify=False)
