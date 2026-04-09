@@ -45,18 +45,6 @@ Sampling place rules:
   \"Beschreibung\" or another clearly stated sampling location.
 - If no place is stated, return \"unknown\".
 {
-  \"samples\": [
-    {
-      \"sample_label\": \"short sample identifier like L1 or Probe-Nr. 1 or unknown\",
-      \"result\": \"+ or - or unknown\",
-      \"reason\": \"very short explanation\",
-      \"evidence\": \"exact line from report\",
-      \"sample_date\": \"YYYY-MM-DD or unknown\",
-      \"sample_time\": \"HH:MM or unknown\",
-      \"sampling_place\": \"text or unknown\"
-    }
-  ]
-}
 
 Rules:
 - Return every sample in the report, not just one.
