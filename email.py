@@ -46,7 +46,6 @@ Sampling place rules:
   \"Beschreibung\" or another clearly stated sampling location.
 - If no place is stated, return \"unknown\".
 
-Output format (STRICT JSON ONLY):
 {
   \"samples\": [
     {
