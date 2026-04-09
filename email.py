@@ -15,6 +15,7 @@ from openai import OpenAI
 MODEL_NAME = "gpt-4.1-mini"
 MAX_RETRIES = 5
 RETRY_SLEEP = 3
+
 DEFAULT_PROMPT = """You are reading a microbiological laboratory test report for Salmonella.
 
 Your task is to extract EVERY sample mentioned in the report.
@@ -44,13 +45,18 @@ Sampling place rules:
 - If \"Entnahmestelle\" is missing, use another explicit place field such as
   \"Beschreibung\" or another clearly stated sampling location.
 - If no place is stated, return \"unknown\".
-{
+
+Output format (STRICT TAB-SEPARATED TEXT ONLY):
+Return one header line followed by one line per sample.
+Use exactly these columns in exactly this order, separated by tabs:
+sample_label\tresult\treason\tevidence\tsample_date\tsample_time\tsampling_place
 
 Rules:
 - Return every sample in the report, not just one.
 - Match each result with the correct sample label, date, time, and place.
 - Be very brief.
 - Do not explain laboratory methods.
+- Do not add extra text before or after the tab-separated table.
 - Write everything in English.
 """
 
