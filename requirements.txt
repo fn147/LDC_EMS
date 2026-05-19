@@ -2,3 +2,5 @@ httpx
 pdfplumber
 streamlit
 openai
+streamlit
+plotly
