@@ -1,11 +1,20 @@
 import streamlit as st
 import plotly.graph_objects as go
-import json, os, math
+import json, math, requests, hashlib
 from collections import defaultdict
 from datetime import datetime
 
-DATA_FILE      = os.path.join(os.path.dirname(__file__), "tasks.json")
-DONE_FILE      = os.path.join(os.path.dirname(__file__), "done_tasks.json")
+# --- GitHub Gist persistence ---
+_GIST_ID    = st.secrets["GIST_ID"]
+_GH_TOKEN   = st.secrets["GH_TOKEN"]
+_GIST_URL   = f"https://api.github.com/gists/{_GIST_ID}"
+_GH_HEADERS = {
+    "Authorization": f"token {_GH_TOKEN}",
+    "Accept": "application/vnd.github+json",
+}
+_TASKS_FILENAME = "tasks.json"
+_DONE_FILENAME  = "done_tasks.json"
+_USERS_FILENAME = "users.json"
 
 COLORS = [
     "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
@@ -15,28 +24,60 @@ COLORS = [
 NOW = lambda: datetime.now().strftime("%Y-%m-%d %H:%M")
 
 
-def load_tasks():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
-    return []
+def _gist_read_all(filename: str) -> dict:
+    resp = requests.get(_GIST_URL, headers=_GH_HEADERS, timeout=10)
+    resp.raise_for_status()
+    raw = resp.json()["files"].get(filename, {}).get("content", "{}")
+    return json.loads(raw)
 
 
-def save_tasks(tasks):
-    with open(DATA_FILE, "w") as f:
-        json.dump(tasks, f, indent=2)
+def _gist_write_all(filename: str, data: dict) -> None:
+    payload = {"files": {filename: {"content": json.dumps(data, indent=2)}}}
+    resp = requests.patch(_GIST_URL, headers=_GH_HEADERS,
+                          json=payload, timeout=10)
+    resp.raise_for_status()
 
 
-def load_done():
-    if os.path.exists(DONE_FILE):
-        with open(DONE_FILE, "r") as f:
-            return json.load(f)
-    return []
+def _hash(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
 
 
-def save_done(done):
-    with open(DONE_FILE, "w") as f:
-        json.dump(done, f, indent=2)
+def load_users() -> dict:
+    return _gist_read_all(_USERS_FILENAME)
+
+
+def register_user(username: str, password: str) -> bool:
+    users = load_users()
+    if username in users:
+        return False
+    users[username] = _hash(password)
+    _gist_write_all(_USERS_FILENAME, users)
+    return True
+
+
+def check_password(username: str, password: str) -> bool:
+    users = load_users()
+    return users.get(username) == _hash(password)
+
+
+def load_tasks(user_email: str) -> list:
+    return _gist_read_all(_TASKS_FILENAME).get(user_email, [])
+
+
+def save_tasks(user_email: str, tasks: list) -> None:
+    all_data = _gist_read_all(_TASKS_FILENAME)
+    all_data[user_email] = tasks
+    _gist_write_all(_TASKS_FILENAME, all_data)
+
+
+def load_done(user_email: str) -> list:
+    return _gist_read_all(_DONE_FILENAME).get(user_email, [])
+
+
+def save_done(user_email: str, done: list) -> None:
+    all_data = _gist_read_all(_DONE_FILENAME)
+    all_data[user_email] = done
+    _gist_write_all(_DONE_FILENAME, all_data)
 
 
 def migrate(tasks):
@@ -74,17 +115,61 @@ def display_positions(tasks):
 
 
 st.set_page_config(page_title="Task Priority Matrix", layout="wide")
+
+# --- Auth ---
+if "logged_in_user" not in st.session_state:
+    st.session_state.logged_in_user = None
+
+if not st.session_state.logged_in_user:
+    st.title("Task Priority Matrix")
+    tab_login, tab_register = st.tabs(["Log in", "Register"])
+
+    with tab_login:
+        username = st.text_input("Username", key="login_user")
+        password = st.text_input("Password", type="password", key="login_pass")
+        if st.button("Log in"):
+            if check_password(username.strip(), password):
+                st.session_state.logged_in_user = username.strip()
+                st.rerun()
+            else:
+                st.error("Incorrect username or password.")
+
+    with tab_register:
+        new_user = st.text_input("Choose a username", key="reg_user")
+        new_pass = st.text_input("Choose a password", type="password", key="reg_pass")
+        new_pass2 = st.text_input("Confirm password", type="password", key="reg_pass2")
+        if st.button("Create account"):
+            if not new_user.strip():
+                st.error("Username cannot be empty.")
+            elif new_pass != new_pass2:
+                st.error("Passwords do not match.")
+            elif len(new_pass) < 4:
+                st.error("Password must be at least 4 characters.")
+            elif register_user(new_user.strip(), new_pass):
+                st.success("Account created! Switch to the Log in tab.")
+            else:
+                st.error("Username already taken.")
+    st.stop()
+
+USER_EMAIL = st.session_state.logged_in_user
+
 st.title("Task Priority Matrix")
 st.caption("Click a dot to edit, move, complete, or delete it.")
 
 if "selected_idx" not in st.session_state:
     st.session_state.selected_idx = None
 
-tasks = migrate(load_tasks())
-done  = load_done()
+tasks = migrate(load_tasks(USER_EMAIL))
+done  = load_done(USER_EMAIL)
 
 # --- Sidebar: add tasks ---
 with st.sidebar:
+    st.caption(f"Logged in as **{USER_EMAIL}**")
+    if st.button("Log out"):
+        st.session_state.logged_in_user = None
+        st.rerun()
+    st.divider()
+
     st.header("Add Task")
     task_name  = st.text_input("Task or Project Name")
     importance = st.slider("Importance", 1, 10, 5)
@@ -99,7 +184,7 @@ with st.sidebar:
                 "subtodos":   [],
                 "created_at": NOW(),
             })
-            save_tasks(tasks)
+            save_tasks(USER_EMAIL, tasks)
             st.success(f'Added "{task_name.strip()}"')
             st.rerun()
         else:
@@ -207,15 +292,15 @@ if selected_idx is not None and selected_idx < len(tasks):
         if st.button("✔ Done", key="btn_done", use_container_width=True):
             task["completed_at"] = NOW()
             done.append(task)
-            save_done(done)
+            save_done(USER_EMAIL, done)
             tasks.pop(selected_idx)
-            save_tasks(tasks)
+            save_tasks(USER_EMAIL, tasks)
             st.session_state.selected_idx = None
             st.rerun()
     with col_del:
         if st.button("🗑 Delete", key="btn_delete", type="primary", use_container_width=True):
             tasks.pop(selected_idx)
-            save_tasks(tasks)
+            save_tasks(USER_EMAIL, tasks)
             st.session_state.selected_idx = None
             st.rerun()
 
@@ -233,7 +318,7 @@ if selected_idx is not None and selected_idx < len(tasks):
         if st.button("Move", key="btn_move", use_container_width=True):
             task["urgency"]    = int(new_urg)
             task["importance"] = int(new_imp)
-            save_tasks(tasks)
+            save_tasks(USER_EMAIL, tasks)
             st.rerun()
 
     # --- Subtasks ---
@@ -250,7 +335,7 @@ if selected_idx is not None and selected_idx < len(tasks):
                                   label_visibility="collapsed")
             if checked != sub["done"]:
                 task["subtodos"][si]["done"] = checked
-                save_tasks(tasks)
+                save_tasks(USER_EMAIL, tasks)
                 st.rerun()
         with col_txt:
             if sub["done"]:
@@ -260,7 +345,7 @@ if selected_idx is not None and selected_idx < len(tasks):
         with col_x:
             if st.button("✕", key=f"del_sub_{selected_idx}_{si}", help="Remove subtask"):
                 task["subtodos"].pop(si)
-                save_tasks(tasks)
+                save_tasks(USER_EMAIL, tasks)
                 st.rerun()
 
     col_new, col_add = st.columns([0.82, 0.18])
@@ -272,7 +357,7 @@ if selected_idx is not None and selected_idx < len(tasks):
         if st.button("+ Add", key=f"add_sub_{selected_idx}", use_container_width=True):
             if new_sub.strip():
                 task["subtodos"].append({"text": new_sub.strip(), "done": False})
-                save_tasks(tasks)
+                save_tasks(USER_EMAIL, tasks)
                 st.rerun()
 
 elif not tasks:
@@ -299,6 +384,6 @@ if done:
             with col_btn:
                 if st.button("🗑", key=f"del_done_{real_j}", help="Delete this record"):
                     done.pop(real_j)
-                    save_done(done)
+                    save_done(USER_EMAIL, done)
                     st.rerun()
             st.markdown("---")
