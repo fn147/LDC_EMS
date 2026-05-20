@@ -92,6 +92,7 @@ def migrate(tasks):
                 normalised.append({"text": s, "done": False})
             elif isinstance(s, dict):
                 s.setdefault("done", False)
+                s.setdefault("description", "")
                 normalised.append(s)
         t["subtodos"] = normalised
     return tasks
@@ -175,7 +176,7 @@ with st.sidebar:
     importance = st.slider("Importance", 1, 10, 5)
     urgency    = st.slider("Urgency",    1, 10, 5)
 
-    if st.button("Add Task", use_container_width=True):
+    if st.button("Add Task", width='stretch'):
         if task_name.strip():
             tasks.append({
                 "name":       task_name.strip(),
@@ -265,7 +266,7 @@ def build_fig(tasks, selected_idx):
 
 
 fig   = build_fig(tasks, st.session_state.selected_idx)
-event = st.plotly_chart(fig, on_select="rerun", use_container_width=True)
+event = st.plotly_chart(fig, on_select="rerun", width='stretch')
 
 # Detect click
 if event and event.selection and event.selection.points:
@@ -289,7 +290,7 @@ if selected_idx is not None and selected_idx < len(tasks):
         st.markdown(f"### {task['name']}")
         st.caption(f"Added: {task.get('created_at', '—')}")
     with col_done:
-        if st.button("✔ Done", key="btn_done", use_container_width=True):
+        if st.button("✔ Done", key="btn_done", width='stretch'):
             task["completed_at"] = NOW()
             done.append(task)
             save_done(USER_EMAIL, done)
@@ -298,7 +299,7 @@ if selected_idx is not None and selected_idx < len(tasks):
             st.session_state.selected_idx = None
             st.rerun()
     with col_del:
-        if st.button("🗑 Delete", key="btn_delete", type="primary", use_container_width=True):
+        if st.button("🗑 Delete", key="btn_delete", type="primary", width='stretch'):
             tasks.pop(selected_idx)
             save_tasks(USER_EMAIL, tasks)
             st.session_state.selected_idx = None
@@ -315,7 +316,7 @@ if selected_idx is not None and selected_idx < len(tasks):
     with col_btn:
         st.write("")
         st.write("")
-        if st.button("Move", key="btn_move", use_container_width=True):
+        if st.button("Move", key="btn_move", width='stretch'):
             task["urgency"]    = int(new_urg)
             task["importance"] = int(new_imp)
             save_tasks(USER_EMAIL, tasks)
@@ -328,35 +329,62 @@ if selected_idx is not None and selected_idx < len(tasks):
                 else "**Subtasks**", unsafe_allow_html=True)
 
     for si, sub in enumerate(subs):
-        col_chk, col_txt, col_x = st.columns([0.06, 0.82, 0.12])
-        with col_chk:
-            checked = st.checkbox("", value=sub["done"],
-                                  key=f"sub_chk_{selected_idx}_{si}",
-                                  label_visibility="collapsed")
-            if checked != sub["done"]:
-                task["subtodos"][si]["done"] = checked
-                save_tasks(USER_EMAIL, tasks)
-                st.rerun()
+        col_txt, col_desc, col_save, col_chk, col_x = st.columns([0.25, 0.50, 0.09, 0.08, 0.07])
         with col_txt:
             if sub["done"]:
                 st.markdown(f"~~{sub['text']}~~")
             else:
                 st.markdown(sub["text"])
+        with col_desc:
+            new_desc = st.text_area(
+                "Description",
+                value=sub.get("description", ""),
+                key=f"sub_desc_{selected_idx}_{si}",
+                placeholder="Add a description…",
+                label_visibility="collapsed",
+                height=68,
+            )
+        with col_save:
+            st.write("")
+            if st.button("Save", key=f"save_desc_{selected_idx}_{si}", width='stretch'):
+                task["subtodos"][si]["description"] = new_desc.strip()
+                save_tasks(USER_EMAIL, tasks)
+                st.rerun()
+        with col_chk:
+            st.write("")
+            tick = "☑" if sub["done"] else "☐"
+            if st.button(tick, key=f"sub_chk_{selected_idx}_{si}",
+                         help="Mark done / undone", width='stretch'):
+                task["subtodos"][si]["done"] = not sub["done"]
+                save_tasks(USER_EMAIL, tasks)
+                st.rerun()
         with col_x:
+            st.write("")
             if st.button("✕", key=f"del_sub_{selected_idx}_{si}", help="Remove subtask"):
                 task["subtodos"].pop(si)
                 save_tasks(USER_EMAIL, tasks)
                 st.rerun()
 
-    col_new, col_add = st.columns([0.82, 0.18])
+    col_new, col_desc_new, col_add = st.columns([0.25, 0.57, 0.18])
     with col_new:
-        new_sub = st.text_input("new subtask", placeholder="Add a subtask…",
+        new_sub = st.text_input("new subtask", placeholder="Subtask name…",
                                 key=f"new_sub_{selected_idx}",
                                 label_visibility="collapsed")
+    with col_desc_new:
+        new_sub_desc = st.text_area("new subtask description",
+                                    placeholder="Description (optional)…",
+                                    key=f"new_sub_desc_{selected_idx}",
+                                    label_visibility="collapsed",
+                                    height=68)
     with col_add:
-        if st.button("+ Add", key=f"add_sub_{selected_idx}", use_container_width=True):
+        st.write("")
+        if st.button("+ Add", key=f"add_sub_{selected_idx}", width='stretch'):
             if new_sub.strip():
-                task["subtodos"].append({"text": new_sub.strip(), "done": False})
+                task["subtodos"].append({
+                    "text": new_sub.strip(),
+                    "done": False,
+                    "description": new_sub_desc.strip(),
+                })
                 save_tasks(USER_EMAIL, tasks)
                 st.rerun()
 
